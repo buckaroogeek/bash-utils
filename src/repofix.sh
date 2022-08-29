@@ -58,7 +58,7 @@ else
 fi
 
 # shellcheck disable=SC2154
-if [[ -z "$repodir" ]]; then
+if [[ ! -d "$repodir" ]]; then
   echo "repodir did not parse"
   exit 1
 fi
