@@ -69,3 +69,4 @@ dnf repomanage --old  "$repodir"  | xargs -r rm
 echo "repomanage done"
 createrepo_c --update --unique-md-filenames "$repodir"
 echo "createrepo update done"
+echo "** script done **"
