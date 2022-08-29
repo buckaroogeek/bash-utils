@@ -11,7 +11,7 @@ set -o pipefail
 CFG_NAME=/etc/dnf/plugins/local.conf
 
 ###
-### repofix - remove older content from dnf_local repo.
+### repofix - remove older, duplicate content from dnf_local repo.
 ###
 ###    By default reads repo path configuration
 ###    from /etc/dnf/plugins/local.conf
@@ -24,7 +24,7 @@ CFG_NAME=/etc/dnf/plugins/local.conf
 ###   repofix.sh <repo path>   -- execute on alternate repo
 ###
 ### Options:
-###  <repo path> ** NOT IMPLEMENTED ** Alternate repo to process
+###  <repo path> Alternate repo path to process
 ###  -y          Execute script
 ###  -h          Show this message
 ###
