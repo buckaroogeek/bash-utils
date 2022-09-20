@@ -69,4 +69,9 @@ dnf repomanage --old  "$repodir"  | xargs -r rm
 echo "repomanage done"
 createrepo_c --update --unique-md-filenames "$repodir"
 echo "createrepo update done"
+
+# refresh dnf cache
+dnf makecache --repo=_dnf_local
+echo "cache refresh done"
+
 echo "** script done **"
