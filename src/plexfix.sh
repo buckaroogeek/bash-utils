@@ -2,8 +2,8 @@
 
 # basic file system permissions and owner, group for plex
 
-OWNER=bgsmith
-GRP=music
+OWNER=plex
+GRP=plex
 LIBRARY=/srv/music
 
 # push current directory
@@ -17,10 +17,10 @@ pwd
 sudo chown -R ${OWNER}:${GRP} *
 
 # fix directory permissions
-sudo find ${LIBRARY} -type d -exec chmod 755 {} \;
+sudo find ${LIBRARY} -type d -exec chmod 775 {} \;
 
 # fix file permissions
-sudo find ${LIBRARY} -type f -exec chmod 644 {} \;
+sudo find ${LIBRARY} -type f -exec chmod 664 {} \;
 
 # return to original directory
 popd
