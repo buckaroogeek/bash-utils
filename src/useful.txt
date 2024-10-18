@@ -1,0 +1,1 @@
+inxi -Fzxx     -- hardware display
