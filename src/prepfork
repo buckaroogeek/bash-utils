@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+# see https://sharats.me/posts/shell-script-best-practices/ for source
+# and inspiration
+#
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
+
+###
+### prepfork - prepare dist-git fork
+###
+###    Prepares dist-git package fork for update
+###    and PR
+###
+### Usage:
+###   prepfork               -- this help file
+###   prepfork -h            -- this help file
+###   prepfork -y            -- execute using default configuration file
+###   prepfork <option>      -- execute with options
+###
+### Options:
+###  <option>    Some option to process
+###  -y          Execute script
+###  -h          Show this message
+###
+
+# See: https://gist.github.com/kovetskiy/a4bb510595b3a6b17bfd1bd9ac8bb4a5
+help() {
+  sed -rn 's/^### ?//;T;p' "$0"
+}
+
+# check for -h or zero arguements
+# if [[ $# == 0 || "$1" == "-h" ]]; then
+if [[ $# == 0 || "${1-}" =~ ^-*h(elp)?$ ]]; then
+  help
+  exit 1
+fi
+
+# main
+main () {
+  # check for -y
+  if [[ "${1-}" != "-y" ]]; then
+    echo "Execute flag not set. Process option and proceed"
+    # option="$1"
+  else
+    printf "** Preparing fork for PR\n"
+
+    echo "*** git clean"
+    git clean -fxd -e newrelease.conf
+
+    echo "*** checkout rawhide"
+    git co rawhide
+
+    echo "** fetch origin"
+    git fetch origin
+
+    echo "** merge origin/rawhide"
+    git merge origin/rawhide
+  fi
+
+  echo "** main done **"
+}
+
+main "$@"
+
+echo "** script done **"
