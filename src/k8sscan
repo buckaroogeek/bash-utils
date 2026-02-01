@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+# see https://sharats.me/posts/shell-script-best-practices/ for source
+# and inspiration
+#
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
+
+###
+### prepfork - prepare dist-git fork
+###
+###    Prepares dist-git package fork for update
+###    and PR
+###
+### Usage:
+###   prepfork               -- this help file
+###   prepfork -h            -- this help file
+###   prepfork -y            -- execute without git clean
+###   prepfork -Y            -- execute with git clean
+###   prepfork <option>      -- execute with options
+###
+### Options:
+###  <option>    Some option to process
+###  -y          Execute script without using git clean
+###  -Y          Execute  script with git clean
+###  -h          Show this message
+###
+
+function read-array {
+  if [[ -z "$1" ]]; then
+    echo "usage: ${FUNCNAME[0]} <varname>" >&2
+    return 1
+  fi
+  if [[ -n $(declare -p "$1" 2>/dev/null) ]]; then
+    if ! declare -p "$1" 2>/dev/null | grep -q '^declare -a'; then
+      echo "${FUNCNAME[0]}: $1 is defined but isn't an array" >&2
+      return 2
+    fi
+  fi
+  # shellcheck disable=SC2034 # this variable _is_ used
+  local __read_array_i=0
+  while IFS= read -r "$1[__read_array_i++]"; do :; done
+  if ! eval "[[ \${$1[--__read_array_i]} ]]"; then
+    unset "$1[__read_array_i]" # ensures last element isn't empty
+  fi
+}
+
+
+# main
+main () {
+
+  local -a patterns
+  read-array patterns < <(go list -m -json | jq -r '.Path + "/..."')
+  go list -find \
+    -f '{{if or (gt (len .TestGoFiles) 0) (gt (len .XTestGoFiles) 0)}}{{.ImportPath}}{{end}}' \
+    "${patterns[@]}" \
+    | grep -vE \
+       -e '^k8s.io/kubernetes/third_party(/.*)?$' \
+       -e '^k8s.io/kubernetes/cmd/kubeadm/test(/.*)?$' \
+       -e '^k8s.io/kubernetes/test/e2e$' \
+       -e '^k8s.io/kubernetes/test/e2e_dra$' \
+       -e '^k8s.io/kubernetes/test/e2e_node(/.*)?$' \
+       -e '^k8s.io/kubernetes/test/e2e_kubeadm(/.*)?$' \
+       -e '^k8s.io/.*/test/integration(/.*)?$'
+
+  echo "** main done **"
+}
+
+main "$@"
+
+echo "** script done **"

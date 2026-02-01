@@ -20,12 +20,14 @@ fi
 ### Usage:
 ###   prepfork               -- this help file
 ###   prepfork -h            -- this help file
-###   prepfork -y            -- execute using default configuration file
+###   prepfork -y            -- execute without git clean
+###   prepfork -Y            -- execute with git clean
 ###   prepfork <option>      -- execute with options
 ###
 ### Options:
 ###  <option>    Some option to process
-###  -y          Execute script
+###  -y          Execute script without using git clean
+###  -Y          Execute  script with git clean
 ###  -h          Show this message
 ###
 
@@ -44,14 +46,14 @@ fi
 # main
 main () {
   # check for -y
-  if [[ "${1-}" != "-y" ]]; then
-    echo "Execute flag not set. Process option and proceed"
-    # option="$1"
-  else
+  if [[ "${1-}" =~ (y|Y) ]]; then
+    echo "*** Option: ${1}"
     printf "** Preparing fork for PR\n"
 
-    echo "*** git clean"
-    git clean -fxd -e newrelease.conf
+    if [[ "${1-}" == "-Y" ]]; then
+      echo "*** git clean"
+      git clean -fxd -e newrelease.conf
+    fi
 
     echo "*** checkout rawhide"
     git co rawhide
@@ -71,8 +73,12 @@ main () {
     echo "** push to origin"
     git push origin rawhide
 
-    printf "**** Create branch for new version\n\n"
+    echo "** current branches"
+    git branch -v
 
+    printf "**** Create branch for new version\n\n"
+  else
+    echo "Execute flag not set. Process option and proceed"
   fi
 
   echo "** main done **"

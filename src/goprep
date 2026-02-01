@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+# see https://sharats.me/posts/shell-script-best-practices/ for source
+# and inspiration
+#
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
+
+config=go-vendor-tools.toml
+###
+### goprep - prepare dist-git fork
+###
+###    Download source using spectool and run go vendor tools
+###    and PR.
+###    Clean up option removes existing source files and
+###    ./results* directory
+###
+### Usage:
+###   goprep               -- this help file
+###   goprep -h            -- this help file
+###   goprep -y            -- execute
+###   goprep -Y            -- execute with clean up
+###
+### Options:
+###  -y          Execute script
+###  -h          Show this message
+###
+
+# See: https://gist.github.com/kovetskiy/a4bb510595b3a6b17bfd1bd9ac8bb4a5
+help() {
+  sed -rn 's/^### ?//;T;p' "$0"
+}
+
+# check for -h or zero arguments
+# if [[ $# == 0 || "$1" == "-h" ]]; then
+if [[ $# == 0 || "${1-}" =~ ^-*h(elp)?$ ]]; then
+  help
+  exit 1
+fi
+
+# main
+main () {
+  # check for -y
+  if [[ "${1-}" =~ (y|Y) ]]; then
+    printf "** Go vendor tools prep\n"
+
+    if [[ "${1-}" == "-Y" ]]; then
+      echo "** clean up"
+      rm -rf *.gz *.bz2 ./results*
+    fi
+
+    specfile=$(ls -1 *.spec)
+    echo "** specfile: $specfile"
+
+    spectool -g $specfile
+    # copied from mkvendor.sh
+    go_vendor_archive create --config "${config}" --idempotent "${specfile}"
+    go_vendor_license --config "${config}" --path "${specfile}" \
+      report expression --update-spec
+  else
+    echo "Execute flag not set. Process option and proceed"
+  fi
+}
+
+main "$@"
+

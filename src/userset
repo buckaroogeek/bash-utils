@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+# see https://sharats.me/posts/shell-script-best-practices/ for source
+# and inspiration
+#
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
+
+config=go-vendor-tools.toml
+###
+### userset - scp essential dotfiles to target
+###
+###    Copies select dotfiles to target fedora machine.
+###    Use dns name or ip to identify target.
+###    Also installs key dependencies.
+###    Assumes basic user account already on machine and ssh key.
+###
+### Usage:
+###   userset               -- this help file
+###   userset -h            -- this help file
+###   userset -y target     -- execute
+###
+### Options:
+###  -y          Execute script
+###  -h          Show this message
+###
+### Argument:
+###  target      Target machine name/ip
+
+# See: https://gist.github.com/kovetskiy/a4bb510595b3a6b17bfd1bd9ac8bb4a5
+help() {
+  sed -rn 's/^### ?//;T;p' "$0"
+}
+
+# check for -h or zero arguments
+# if [[ $# == 0 || "$1" == "-h" ]]; then
+if [[ $# == 0 || "${1-}" =~ ^-*h(elp)?$ ]]; then
+  help
+  exit 1
+fi
+
+# main
+main () {
+  goflag="false"
+  while getopts 'hy' OPTION
+  do
+      case $OPTION in
+          h) help
+             exit 0
+             ;;
+          y) goflag="true"
+             ;;
+          ?) printf "Usage: sudo %s [-h] [-y] target\n" ${0##*/} >&2
+             exit 2
+             ;;
+      esac
+  done
+  shift $(($OPTIND - 1))
+
+  # Handle remaining positional arguments
+  target=("$1")
+
+  # process dry run if toggled
+  if ! "$goflag" ; then
+    echo -e "\nDry run"
+    echo "  - Target: $target"
+
+
+    exit 0
+  fi
+
+  else
+    echo "Execute flag not set. Process option and proceed"
+  fi
+}
+
+main "$@"
+
