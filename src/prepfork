@@ -58,14 +58,14 @@ main () {
     echo "*** checkout rawhide"
     git co rawhide
 
-    echo "** fetch origin"
-    git fetch origin
+    echo "** git fetch"
+    git fetch -v
 
     echo "** merge origin/rawhide"
     git merge origin/rawhide
 
-    echo "** fetch upstream"
-    git fetch upstream
+    # echo "** fetch upstream"
+    # git fetch upstream
 
     echo "** merge upstream"
     git merge upstream/rawhide
