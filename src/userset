@@ -11,6 +11,11 @@ if [[ "${TRACE-0}" == "1" ]]; then
     set -o xtrace
 fi
 
+# constants
+COUNT=1
+WAIT=2
+
+
 config=go-vendor-tools.toml
 ###
 ### userset - scp essential dotfiles to target
@@ -62,6 +67,13 @@ main () {
   done
   shift $(($OPTIND - 1))
 
+  # check target is not empty
+  if [[ $# -eq 0 ]] ; then
+    echo -e "/nTarget missing"
+    help
+    exit 1
+  fi
+
   # Handle remaining positional arguments
   target=("$1")
 
@@ -69,14 +81,45 @@ main () {
   if ! "$goflag" ; then
     echo -e "\nDry run"
     echo "  - Target: $target"
-
-
     exit 0
   fi
 
+  # check that target is valid and online
+  pingmsg="\n$target is"
+  if ping -c $COUNT -W $WAIT $target >/dev/null 2>&1; then
+    echo -e "$pingmsg up"
   else
-    echo "Execute flag not set. Process option and proceed"
+    echo -e "$pingmsg not available"
+    exit 1
   fi
+
+  # bashrc
+  echo " - bashrc"
+  scp -p ~/.bashrc $target:~/.bashrc
+
+  # bashrc.d
+  echo " - bashrc.d"
+  dirstr=~/.bashrc.d
+  ssh $target "mkdir -p $dirstr" && scp -p $dirstr/* $target:$dirstr/
+
+  # vim, including minpac but not plugsins
+  echo " - vim and minpack"
+  dirstr=~/.config/vim
+  ssh $target "mkdir -p $dirstr" && scp -p $dirstr/vimrc $target:$dirstr/vimrc
+  dirstr=~/.config/vim/pack/minpac/opt/minpac/
+  ssh $target "mkdir -p $dirstr" && scp -r -p $dirstr/* $target:$dirstr/
+
+  # starship
+  echo " - starship.toml"
+  dirstr=~/.config
+  ssh $target "mkdir -p $dirstr" && scp -p $dirstr/starship.toml $target:$dirstr/
+
+  # tmux
+  echo " - tmux"
+  dirstr=~/.config/tmux
+  ssh $target "mkdir -p $dirstr" && scp -p $dirstr/tmux.* $target:$dirstr/
+  dirstr=~/.config/tmux/plugins
+  ssh $target "mkdir -p $dirstr" && scp -r -p $dirstr/* $target:$dirstr/
 }
 
 main "$@"
