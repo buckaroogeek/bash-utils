@@ -8,20 +8,20 @@ set -o pipefail
 # run via sudo
 
 # default dnf local repo configuration file
-CFG_NAME=/etc/dnf/plugins/local.conf
+CFG_NAME=/etc/dnf/libdnf5-plugins/local.conf
 
 ###
 ### repofix - remove older, duplicate content from dnf_local repo.
 ###
 ###    By default reads repo path configuration
-###    from /etc/dnf/plugins/local.conf
+###    from /etc/dnf/libdnf5-plugins/local.conf
 ###    ** Run with sudo **
 ###
 ### Usage:
-###   repofix.sh               -- this help file
-###   repofix.sh -h            -- this help file
-###   repofix.sh -y            -- execute using default configuration file
-###   repofix.sh <repo path>   -- execute on alternate repo
+###   repofix               -- this help file
+###   repofix -h            -- this help file
+###   repofix -y            -- execute using default configuration file
+###   repofix <repo path>   -- execute on alternate repo path
 ###
 ### Options:
 ###  <repo path> Alternate repo path to process
@@ -51,15 +51,19 @@ else
     exit 1
   fi
 
+  # set default for repodir
+  repodir=/var/lib/dnf/plugins/local
+ 
   # source the config file
   # shellcheck disable=SC1094
-  # shellcheck source=/etc/dnf/plugins/local.conf
+  # shellcheck source=/etc/dnf/libdnf5-plugins/local.conf
   source <(grep -E '^repodir' "$CFG_NAME" | tr -d ' ')
+  
 fi
 
 # shellcheck disable=SC2154
 if [[ ! -d "$repodir" ]]; then
-  echo "repodir did not parse"
+  echo "repodir did not parse correctly: $repodir"
   exit 1
 fi
 
@@ -67,7 +71,8 @@ fi
 echo "repodir: $repodir"
 dnf repomanage --old  "$repodir"  | xargs -r rm
 echo "repomanage done"
-createrepo_c --update --unique-md-filenames "$repodir"
+# createrepo_c --update --unique-md-filenames "$repodir"
+createrepo_c -v --unique-md-filenames "$repodir"
 echo "createrepo update done"
 
 # refresh dnf cache

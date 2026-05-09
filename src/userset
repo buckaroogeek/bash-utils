@@ -15,8 +15,9 @@ fi
 COUNT=1
 WAIT=2
 
+# userset repo
+REPO=/home/bgsmith/src/userset-dotfiles/src
 
-config=go-vendor-tools.toml
 ###
 ### userset - scp essential dotfiles to target
 ###
@@ -27,12 +28,14 @@ config=go-vendor-tools.toml
 ###
 ### Usage:
 ###   userset               -- this help file
+###   userset -c            -- copy files to repo
 ###   userset -h            -- this help file
 ###   userset -y target     -- execute
 ###
 ### Options:
 ###  -y          Execute script
 ###  -h          Show this message
+###  -c          Copy config files to REPO
 ###
 ### Argument:
 ###  target      Target machine name/ip
@@ -52,15 +55,40 @@ fi
 # main
 main () {
   goflag="false"
-  while getopts 'hy' OPTION
+  while getopts 'chy' OPTION
   do
       case $OPTION in
+          c) cp ~/.bashrc $REPO
+             mkdir -p $REPO/.bashrc.d
+             cp -r ~/.bashrc.d/* $REPO/.bashrc.d/
+             mkdir -p $REPO/.config/tmux
+             cp ~/.config/tmux/tmux* $REPO/.config/tmux/
+             mkdir -p $REPO/.config/tmux/plugins/tpm
+             cp -a ~/.config/tmux/plugins/tpm/* $REPO/.config/tmux/plugins/tpm/
+             mkdir -p $REPO/.config/vim
+             cp -a ~/.config/vim/vimrc $REPO/.config/vim/
+             mkdir -p $REPO/.config/vim/pack/minpac/opt/minpac
+             cp -a ~/.config/vim/pack/minpac/opt/minpac/* $REPO/.config/vim/pack/minpac/opt/minpac/
+             mkdir -p $REPO/.config
+             cp ~/.config/starship.toml $REPO/.config
+             echo "Copy done"
+             pushd $REPO
+             if [ -n "$(git status --porcelain)" ]; then
+i              git add *
+               NOW=$(date +%Y-%m-%d_%T)
+               git commit -m "Update repo - $NOW"
+               git push origin
+               echo "Git done"
+             fi
+             popd
+             exit 0
+             ;;
           h) help
              exit 0
              ;;
           y) goflag="true"
              ;;
-          ?) printf "Usage: sudo %s [-h] [-y] target\n" ${0##*/} >&2
+          ?) printf "Usage: sudo %s [-c] [-h] [-y] target\n" ${0##*/} >&2
              exit 2
              ;;
       esac
@@ -114,11 +142,11 @@ main () {
   dirstr=~/.config
   ssh $target "mkdir -p $dirstr" && scp -p $dirstr/starship.toml $target:$dirstr/
 
-  # tmux
+  # tmux and tpm 
   echo " - tmux"
   dirstr=~/.config/tmux
   ssh $target "mkdir -p $dirstr" && scp -p $dirstr/tmux.* $target:$dirstr/
-  dirstr=~/.config/tmux/plugins
+  dirstr=~/.config/tmux/plugins/tmp
   ssh $target "mkdir -p $dirstr" && scp -r -p $dirstr/* $target:$dirstr/
 }
 
