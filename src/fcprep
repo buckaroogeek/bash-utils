@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+# see https://sharats.me/posts/shell-script-best-practices/ for source
+# and inspiration
+#
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "${TRACE-0}" == "1" ]]; then
+    set -o xtrace
+fi
+
+###
+### fedprep - prepare dist-git fork
+###
+###    Prepares fedpkg dist-git package for build and update
+###
+### Usage:
+###   fedprep               -- this help file
+###   fedprep -h            -- this help file
+###   fedprep -y            -- execute without git clean
+###   fedprep -Y            -- execute with git clean
+###   fedprep <option>      -- execute with options
+###
+### Options:
+###  <option>    Some option to process
+###  -y          Execute script without using git clean
+###  -Y          Execute  script with git clean
+###  -h          Show this message
+###
+
+# See: https://gist.github.com/kovetskiy/a4bb510595b3a6b17bfd1bd9ac8bb4a5
+help() {
+  sed -rn 's/^### ?//;T;p' "$0"
+}
+
+# check for -h or zero arguements
+# if [[ $# == 0 || "$1" == "-h" ]]; then
+if [[ $# == 0 || "${1-}" =~ ^-*h(elp)?$ ]]; then
+  help
+  exit 1
+fi
+
+# main
+main () {
+  # check for -y
+  if [[ "${1-}" =~ (y|Y) ]]; then
+    echo "*** Option: ${1}"
+    printf "** Preparing package for build\n"
+
+    if [[ "${1-}" == "-Y" ]]; then
+      echo "*** checkout rawhide"
+      git clean -fxd -e newrelease.conf
+    fi
+
+    echo "** git fetch"
+    git fetch -v
+
+    echo "*** checkout rawhide"
+    fedpkg switch-branch rawhide
+
+    echo "** fedpkg pull"
+    fedpkg pull
+
+    echo "** current log"
+    git log -2
+
+  fi
+
+  echo "** main done **"
+}
+
+main "$@"
+
+echo "** script done **"

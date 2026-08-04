@@ -146,7 +146,7 @@ i              git add *
   echo " - tmux"
   dirstr=~/.config/tmux
   ssh $target "mkdir -p $dirstr" && scp -p $dirstr/tmux.* $target:$dirstr/
-  dirstr=~/.config/tmux/plugins/tmp
+  dirstr=~/.config/tmux/plugins/tpm
   ssh $target "mkdir -p $dirstr" && scp -r -p $dirstr/* $target:$dirstr/
 }
 
