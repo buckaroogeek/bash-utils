@@ -76,7 +76,7 @@ main () {
 
   # check for sudo
   if ! sudo -n -l &>/dev/null; then
-    echo "Please run this script with sudo"
+    echo "sudo needed to run this script"
     exit 1
   fi
 
