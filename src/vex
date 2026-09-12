@@ -1,59 +1,86 @@
 #!/usr/bin/env bash
 
-# modified from cri-o project ./hack/govulncheck.sh
+# Modified from cri-o project ./hack/govulncheck.sh
 #
 set -euo pipefail
 
-# The govulncheck version should match supported Go version.
-# GOVULNCHECK_VERSION="v1.1.4"
+###
+### vex - generate vex formatted govulncheck output
+###
+###    Generate vex formatted govulncheck analysis of go source
+###    code. Results are placed in ./vex-report directory.
+###    This directory is removed and created with each run.
+###    
+###
+### Usage:
+###   vex               -- this help file
+###   vex -h            -- this help file
+###   vex -j            -- Generate optional json based report
+###   vex -J            -- Generate optional json based report and exclude vex report
+###
+### Options:
+###  -j          Generate addional json report
+###  -J          Only generate json report
+###  -h          Show this message
+###
 
-# Install build time dependencies.
-# sudo apt-get update
-# sudo apt-get install -y pkg-config libgpgme-dev libbtrfs-dev libseccomp-dev btrfs-progs
-sudo dnf install -y pkg-config gpgme-devel libbtrfs libseccomp-devel btrfs-progs
+# See: https://gist.github.com/kovetskiy/a4bb510595b3a6b17bfd1bd9ac8bb4a5
+help() {
+  sed -rn 's/^### ?//;T;p' "$0"
+}
 
-# Set environment variables.
-export GOGC=off
-export GO111MODULE=on
-export GOSUMDB="sum.golang.org"
-# export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig"
-export PKG_CONFIG_PATH="/usr/bin/x86_64-redhat-linux-gnu-pkg-config"
-GOPATH_BIN="$(go env GOPATH)"/bin
-export PATH="${PATH}:${GOPATH_BIN}"
+# check for -h or zero arguments
+# if [[ $# == 0 || "$1" == "-h" ]]; then
+if [[ "${1-}" =~ ^-*h(elp)?$ ]]; then
+  help
+  exit 1
+fi
 
-# Install govulncheck.
-# go install golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}
-go install golang.org/x/vuln/cmd/govulncheck@latest
 
-# dir name
-result=${PWD##*/}
-result=${result:-/}
-
-# Generate the OpenVEX report.
-mkdir -p build
-"$GOPATH_BIN"/govulncheck -format openvex -tags=test ./... >build/%{result}.openvex.json
-echo "VEX report written to build/${result}.openvex.json"
-
-# If VEX_ONLY is set, skip the vulnerability check.
-if [[ "${VEX_ONLY:-}" == "true" ]]; then
+# main
+main () {
+  if [[ "${1-}" =~ (j|J) ]]; then
+    echo "Functionality not implemented"
     exit 0
-fi
+  fi
 
-# Generate the JSON report for vulnerability checking.
-report=$(mktemp)
-trap 'rm "$report"' EXIT
-"$GOPATH_BIN"/govulncheck -format json -tags=test ./... >"$report"
+  # Install build time dependencies.
+  # sudo apt-get update
+  # sudo apt-get install -y pkg-config libgpgme-dev libbtrfs-dev libseccomp-dev btrfs-progs
+  sudo dnf install -y pkg-config gpgme-devel libbtrfs libseccomp-devel btrfs-progs
 
-# Parse vulnerabilities from the report.
-modvulns=$(jq -Sr '.vulnerability.modules[]? | select(.path != "stdlib") | [.path, "affected package(s): \(.packages[].path)", "found version: \(.found_version)", "fixed version: \(.fixed_version)"]' <"$report")
-libvulns=$(jq -Sr '.vulnerability.modules[]? | select(.path == "stdlib") | [.path, "affected package(s): \(.packages[].path)", "found version: \(.found_version)", "fixed version: \(.fixed_version)"]' <"$report")
+  # Set environment variables.
+  export GOGC=off
+  export GO111MODULE=on
+  export GOSUMDB="sum.golang.org"
+  # export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig"
+  export PKG_CONFIG_PATH="/usr/bin/x86_64-redhat-linux-gnu-pkg-config"
 
-# Print vulnerabilities information, if any.
-echo "$modvulns"
-echo "$libvulns"
+  # find user go bin directory
+  GOPATH_BIN=$(go env GOBIN)
+  if [ -z "$GOPATH_BIN" ]; then
+    GOPATH_BIN="$(go env GOPATH)"/bin
+  fi
+  mkdir -p "$GOPATH_BIN"
+  echo "Using $GOPATH_BIN"
+  export PATH="${PATH}:${GOPATH_BIN}"
 
-# Exit with non-zero status if there were any vulnerabilities detected in module dependencies.
-if [[ -n "$modvulns" ]]; then
-    echo "non-zero status"
-    exit 1
-fi
+  # Install govulncheck in GOPATH_BIN
+  # go install golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}
+  go install golang.org/x/vuln/cmd/govulncheck@latest
+
+  # dir name
+  result=${PWD##*/}
+  result=${result:-/}
+
+  # Generate the OpenVEX report.
+  rm -rf vex-report
+  mkdir -p vex-report
+  "$GOPATH_BIN"/govulncheck -format openvex -tags=test ./... >vex-report/${result}.openvex.json
+  echo "VEX report written to vex-report/${result}.openvex.json"
+
+  # jq -Sr '[ .statements [] | { name: .vulnerability.name, status: .status } ]' cri-o.openvex.json
+}
+
+main "$@"
+

@@ -4,29 +4,39 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# clean up dnf local repo
+if [[ "${TRACE-0}" == "1" ]]; then
+  set -o xtrace
+fi
+
+# clean up dnf local repos
 # run via sudo
 
+# constants
 # default dnf local repo configuration file
 CFG_NAME=/etc/dnf/libdnf5-plugins/local.conf
+
+# the dnf5 implementation of dnf local adds a no-gpg check repo 
+# set defaults for repodirs
+GPGREPO=/var/lib/dnf/plugins/local
+NOGPGREPO=/var/lib/dnf/plugins/local-nogpgcheck
 
 ###
 ### repofix - remove older, duplicate content from dnf_local repo.
 ###
-###    By default reads repo path configuration
+###    By default reads repo path configurations
 ###    from /etc/dnf/libdnf5-plugins/local.conf
 ###    ** Run with sudo **
 ###
 ### Usage:
-###   repofix               -- this help file
-###   repofix -h            -- this help file
-###   repofix -y            -- execute using default configuration file
-###   repofix <repo path>   -- execute on alternate repo path
+###   repofix                  -- this help file
+###   repofix -h               -- this help file
+###   repofix -y               -- execute using default configuration file
+###   repofix -y <config path> -- execute on alternate configuration file
 ###
 ### Options:
-###  <repo path> Alternate repo path to process
-###  -y          Execute script
-###  -h          Show this message
+###  <config path> Path to alternate config file
+###  -y            Execute script
+###  -h            Show this message
 ###
 
 # See: https://gist.github.com/kovetskiy/a4bb510595b3a6b17bfd1bd9ac8bb4a5
@@ -34,49 +44,96 @@ help() {
   sed -rn 's/^### ?//;T;p' "$0"
 }
 
-# check for -h or zero arguements
-if [[ $# == 0 || "$1" == "-h" ]]; then
-  help
-  exit 1
-fi
+# clean up repo passed as arg 
+cleanup() {
+  # validate directory exists
+  if [[ ! -d "$1" ]]; then
+    echo -e "\n*** Directory $1 not found. Skipping ***\n"
+    return
+  fi
 
-# check for -y or <repo path>
-if [[ "$1" != "-y" ]]; then
-  repodir="$1"
-  echo "Processing alternate repo at $repodir"
-else
-# check if dnf local config file exists
-  if [[ ! -f $CFG_NAME ]]; then
-    echo "$CFG_NAME does not exist"
+  # clean up repo
+  echo -e "\nRepository: $1"
+  dnf repomanage --old  "$1"  | xargs -r rm
+  echo "repomanage done"
+  # createrepo_c --update --unique-md-filenames "$repodir"
+  createrepo_c -v --unique-md-filenames "$1"
+  echo "createrepo update done"
+
+  # refresh dnf cache
+  dnf makecache --repo=$2
+  echo "$2 cache refresh done"
+}
+
+# main routine
+main () {
+  # check for -h or zero arguments
+  # if [[ $# == 0 || "$1" == "-h" ]]; then
+  if [[ $# == 0 || "${1-}" =~ ^-*h(elp)?$ ]]; then
+    help
     exit 1
   fi
 
-  # set default for repodir
-  repodir=/var/lib/dnf/plugins/local
- 
-  # source the config file
+  # check for sudo
+  if [ "$EUID" -ne 0 ]; then
+    echo "Please run this script with sudo"
+    exit 1
+  fi
+
+  goflag="false"
+  while getopts 'hy' OPTION
+  do
+    case $OPTION in
+      h) help
+        exit 0
+        ;;
+      y) goflag="true"
+        ;;
+      ?) printf "Usage: sudo %s [-h] [-y] [alternate_config]\n" ${0##*/} >&2
+        exit 2
+        ;;
+    esac
+  done
+  shift $(($OPTIND - 1))
+
+  # check for alternate config
+  if [[ $# -gt 0 ]] ; then
+    cfgfile="$1"
+    echo "Processing alternate configuration at $cfgfile"
+  else
+    cfgfile=$CFG_NAME
+  fi
+
+  # check if libdnf5 plugin local config file exists
+  if [[ ! -f $cfgfile ]]; then
+    echo "$cfgfile does not exist"
+    exit 1
+  fi
+
+  # Extract setting for repodirs from config file
+  # otherwise defaults will be used
   # shellcheck disable=SC1094
   # shellcheck source=/etc/dnf/libdnf5-plugins/local.conf
-  source <(grep -E '^repodir' "$CFG_NAME" | tr -d ' ')
-  
-fi
+  source <(grep -E '^repodir ' "$cfgfile" | tr -d ' ')
+  source <(grep -E '^repodir_nogpgcheck' "$cfgfile" | tr -d ' ')
 
-# shellcheck disable=SC2154
-if [[ ! -d "$repodir" ]]; then
-  echo "repodir did not parse correctly: $repodir"
-  exit 1
-fi
+  # shellcheck disable=SC2154
+  if [[ -z "${repodir:-}" ]]; then
+    echo "Using default for repodir"
+    repodir=$GPGREPO
+  fi
 
-# clean up repo
-echo "repodir: $repodir"
-dnf repomanage --old  "$repodir"  | xargs -r rm
-echo "repomanage done"
-# createrepo_c --update --unique-md-filenames "$repodir"
-createrepo_c -v --unique-md-filenames "$repodir"
-echo "createrepo update done"
+  # shellcheck disable=SC2154
+  if [[ -z "${repodir_nogpgcheck:-}" ]]; then
+    echo "Using default for repodir_nogpgcheck"
+    repodir_nogpgcheck=$NOGPGREPO
+  fi
 
-# refresh dnf cache
-dnf makecache --repo=_dnf_local
-echo "cache refresh done"
+  # clean up repo
+  cleanup $repodir            _dnf_local
+  cleanup $repodir_nogpgcheck _dnf_local_nogpgcheck
 
-echo "** script done **"
+  echo -e "\n** script done **"
+}
+
+main "$@"
