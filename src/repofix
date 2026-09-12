@@ -54,14 +54,14 @@ cleanup() {
 
   # clean up repo
   echo -e "\nRepository: $1"
-  dnf repomanage --old  "$1"  | xargs -r rm
+  sudo dnf repomanage --old  "$1"  | xargs -r rm
   echo "repomanage done"
   # createrepo_c --update --unique-md-filenames "$repodir"
-  createrepo_c -v --unique-md-filenames "$1"
+  sudo createrepo_c -v --unique-md-filenames "$1"
   echo "createrepo update done"
 
   # refresh dnf cache
-  dnf makecache --repo=$2
+  sudo dnf makecache --repo=$2
   echo "$2 cache refresh done"
 }
 
@@ -75,7 +75,7 @@ main () {
   fi
 
   # check for sudo
-  if [ "$EUID" -ne 0 ]; then
+  if ! sudo -n -l &>/dev/null; then
     echo "Please run this script with sudo"
     exit 1
   fi
